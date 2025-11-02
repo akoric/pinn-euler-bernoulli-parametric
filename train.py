@@ -51,16 +51,39 @@ def train():
 
     data=gen_data(15000)
     for k in data: data[k]=data[k].to(device)
+    # 80/20 train/validation split
+    n_total = data['x'].shape[0]
+    perm = torch.randperm(n_total, device=device)
+    n_train = int(0.8 * n_total)
+    train_idx = perm[:n_train]
+    val_idx = perm[n_train:]
+
+    def compute_val_stats():
+        """Return (rmse, rms_true, rel_percent) on the 20% validation split."""
+        model.eval()
+        x = data['x'][val_idx].clone().detach().requires_grad_(True)
+        E = data['E'][val_idx]
+        I = data['I'][val_idx]
+        q = data['q'][val_idx]
+        w_true = data['w'][val_idx]
+        out = model(x, E, I, q)
+        err = out['w'] - w_true
+        rmse = torch.sqrt((err**2).mean())
+        rms_true = torch.sqrt((w_true**2).mean())
+        rel_percent = 100.0 * (rmse / (rms_true + 1e-15))
+        return rmse.item(), rms_true.item(), rel_percent.item()
 
     opt=optim.Adam(model.parameters(), lr=5e-4)
     sched=optim.lr_scheduler.ReduceLROnPlateau(opt, mode='min', factor=0.5, patience=400)
 
-    pde_w, bc_w, data_w = 10.0, 50.0, 1.0
+    pde_w, bc_w, data_w = 30.0, 100.0, 1.0
     start=time.time()
     pbar=tqdm(range(6000), desc='Training')
     for epoch in pbar:
         model.train(); opt.zero_grad()
-        idx=torch.randint(0,len(data['x']),(512,),device=device)
+        # Sample only from training subset
+        idx_in_tr = torch.randint(0, train_idx.shape[0], (512,), device=device)
+        idx = train_idx[idx_in_tr]
         x=data['x'][idx].requires_grad_(True)
         E=data['E'][idx]; I=data['I'][idx]; q=data['q'][idx]; w_true=data['w'][idx]
         out=model(x,E,I,q)
@@ -72,13 +95,27 @@ def train():
         q_bc=torch.rand(n_bc,1,device=device)*1000 + 500
         out_bc=model(x_bc,E_bc,I_bc,q_bc)
         loss_bc=(out_bc['w_xx']**2).mean() + (out_bc['w_xxx']**2).mean()
-        loss_data=((out['w']-w_true)**2).mean()
+        # Normalized shape data loss: scale by s = q*L^4/(E*I)
+        s = (q * (L**4)) / (E * I + 1e-15)
+        loss_data=(((out['w']/s) - (w_true/s))**2).mean()
         loss=pde_w*loss_pde + bc_w*loss_bc + data_w*loss_data
         loss.backward(); torch.nn.utils.clip_grad_norm_(model.parameters(),1.0)
         opt.step(); sched.step(loss)
         if epoch%200==0:
-            pbar.set_postfix(Loss=f"{loss.item():.2e}", PDE=f"{loss_pde.item():.2e}", BC=f"{loss_bc.item():.2e}", Data=f"{loss_data.item():.2e}")
+            val_rmse, val_rms_true, val_rel = compute_val_stats()
+            pbar.set_postfix({
+                'Loss': f"{loss.item():.2e}",
+                'PDE': f"{loss_pde.item():.2e}",
+                'BC': f"{loss_bc.item():.2e}",
+                'Data': f"{loss_data.item():.2e}",
+                'ValRMSE': f"{val_rmse:.3e}",
+                'Val%': f"{val_rel:.2f}%",
+            })
     print(f"Training took {(time.time()-start):.1f}s")
+    final_rmse, final_rms_true, final_rel = compute_val_stats()
+    print(f"Final validation RMSE: {final_rmse:.6e} m")
+    print(f"Validation RMS(w_true): {final_rms_true:.6e} m")
+    print(f"Validation Relative RMSE: {final_rel:.3f}%")
 
     torch.save({'model_state_dict':model.state_dict(),'E_ref':200e9,'I_ref':1e-6,'q_ref':1000.0,'L':L,'hidden_layers':[64,64,64]}, 'parametric_pinn_model.pt')
     print('Saved model to parametric_pinn_model.pt')
