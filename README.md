@@ -45,7 +45,7 @@ Creates comparison plots showing analytical solutions versus PINN predictions.
 - **requirements.txt** — Python package dependencies
 
 ## Performance
-The model achieves approximately 6.5% relative RMSE on the validation set. Generalization performance is strong within the training parameter ranges, with some degradation observed for out-of-distribution cases
+The model achieves approximately 4.4% relative RMSE on the validation set. Generalization performance is strong within the training parameter ranges, with some degradation observed for out-of-distribution cases
 
 ## Implementation Details
 - **Architecture**: 3 hidden layers with 64 neurons each, using Tanh activation

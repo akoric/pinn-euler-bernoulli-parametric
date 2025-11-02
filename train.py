@@ -52,6 +52,9 @@ L=1.0
 model=ParametricClampedBeam([64,64,64],L=L).to(device)
 model.set_normalization_params(200e9,1e-6,1000.0)
 
+# set seed for reproducible data generation
+torch.manual_seed(42)
+np.random.seed(42)
 data=gen_data(15000)
 for k in data:
     data[k]=data[k].to(device)
@@ -137,5 +140,16 @@ print(f"Final validation RMSE: {final_rmse:.6e} m")
 print(f"Validation RMS(w_true): {final_rms_true:.6e} m")
 print(f"Validation Relative RMSE: {final_rel:.3f}%")
 
-torch.save({'model_state_dict':model.state_dict(),'E_ref':200e9,'I_ref':1e-6,'q_ref':1000.0,'L':L,'hidden_layers':[64,64,64]}, 'parametric_pinn_model.pt')
+# save model with validation indices for reproducibility
+torch.save({
+    'model_state_dict':model.state_dict(),
+    'E_ref':200e9,
+    'I_ref':1e-6,
+    'q_ref':1000.0,
+    'L':L,
+    'hidden_layers':[64,64,64],
+    'val_idx':val_idx.cpu(),
+    'data_seed':42,
+    'n_data':15000
+}, 'parametric_pinn_model.pt')
 print('Saved model to parametric_pinn_model.pt')
