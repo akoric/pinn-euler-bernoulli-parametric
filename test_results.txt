@@ -1,0 +1,10 @@
+Training center: rel L2=0.0231
+E=150: rel L2=0.0247
+E=250: rel L2=0.0048
+I=0.75e-6: rel L2=0.1059
+I=1.5e-6: rel L2=0.1617
+q=750: rel L2=0.0964
+q=1250: rel L2=0.0515
+E=100 (edge): rel L2=0.0097
+E=300 (edge): rel L2=0.0291
+OUT q=2000: rel L2=0.2722
