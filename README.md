@@ -59,6 +59,13 @@ The implementation uses a trial solution approach where boundary conditions at x
 
 For improved performance on extreme parameter values, consider increasing the number of training samples in those regions or extending the training duration.
 
+## Training Notes
+- Uses mini-batches of 512 samples drawn from the 80% training split (with replacement); boundary conditions use 64 points at x=1 per step.
+- Spatial coordinates are sampled with a Beta(0.5, 0.5) distribution to put more emphasis near the boundaries; parameters (E, I, q) use light importance sampling.
+- Loss is a weighted mix: 30× PDE residual, 100× boundary conditions, 1× data fit; deflections are normalized by s = qL⁴/(EI) for stability.
+- Reproducibility: fixed seed (42) and saved validation indices in the checkpoint; visualization reuses the exact 20% validation set.
+- Typical run: 6000 steps in ~70–75 seconds on an M‑series Mac; the final model is saved to `parametric_pinn_model.pt`.
+
 ## Requirements
 - Python 3.8 or higher
 - PyTorch 2.2 or higher
